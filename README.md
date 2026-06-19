@@ -84,6 +84,63 @@ Nếu các bạn là giảng viên hoặc reviewer:
 
 - dùng `src/` để đánh giá scaffold giao cho sinh viên và kết quả hoàn thiện cuối cùng
 
+## Trạng thái triển khai
+
+Repo đã hoàn thiện cả hai agent, benchmark và test. Chế độ offline deterministic
+được dùng mặc định khi không có credential, nhờ đó kết quả chấm có thể tái lập.
+
+Chạy toàn bộ kiểm chứng:
+
+```bash
+pytest -q
+python src/benchmark.py
+```
+
+Chạy website showcase để thuyết trình:
+
+```bash
+python -m http.server 8080
+```
+
+Mở `http://localhost:8080/web/`. Website có benchmark tương tác, mô phỏng
+correction trong `User.md`, kiến trúc ba lớp, evaluator mode bám sát rubric và
+presentation mode toàn màn hình. Evidence map chi tiết nằm tại
+`web/RUBRIC_EVIDENCE.md`; phần phân tích 10 câu hỏi nằm tại `ANALYSIS.md`.
+
+Kết quả offline tham chiếu trên dataset đi kèm:
+
+| Suite | Agent | Prompt tokens processed | Cross-session recall | Compactions |
+|---|---|---:|---:|---:|
+| Standard | Baseline | 12,852 | 0.036 | 0 |
+| Standard | Advanced | 23,699 | 1.000 | 0 |
+| Stress | Baseline | 21,718 | 0.000 | 0 |
+| Stress | Advanced | 15,362 | 1.000 | 7 |
+
+Các số trên minh họa đúng trade-off:
+
+- Hội thoại ngắn: Advanced có overhead vì luôn nạp `User.md`; compact chưa kích
+  hoạt nên không nhất thiết rẻ hơn Baseline.
+- Hội thoại dài: Baseline xử lý lại toàn bộ lịch sử mỗi lượt, còn Advanced giữ
+  summary bị chặn kích thước và một cửa sổ message gần nhất. Lợi ích chính nằm ở
+  `Prompt tokens processed`, không phải số token agent sinh ra.
+- Persistent memory tăng recall qua session nhưng file có thể phình theo số field.
+  Bản này dùng structured upsert để mỗi field chỉ có một giá trị hiện hành.
+
+## Bonus và guardrail
+
+- **Confidence threshold:** chỉ các câu khẳng định khớp pattern rõ ràng mới được
+  ghi; câu hỏi, câu đùa, địa điểm công tác tạm thời và phủ định bị bỏ qua.
+- **Entity extraction:** profile lưu theo field (`name`, `location`,
+  `profession`, `response_style`, ...), dễ đọc và dễ kiểm thử.
+- **Conflict handling:** correction thay thế giá trị cũ, nên `backend engineer`
+  không tồn tại song song với `MLOps engineer`.
+- **Bounded summary:** compact summary có giới hạn kích thước để tránh chuyển
+  vấn đề tăng trưởng từ raw history sang summary.
+
+Rủi ro còn lại là regex có thể bỏ sót cách diễn đạt mới hoặc ghi nhầm một câu
+khẳng định mơ hồ. Production system nên bổ sung schema validation, provenance,
+timestamp/decay và bước xác nhận khi confidence ở vùng trung gian.
+
 ## Tài liệu nên đọc tiếp
 
 - `Guide.md`: hướng dẫn từng bước để hoàn thành lab
